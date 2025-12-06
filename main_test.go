@@ -30,6 +30,17 @@ func Test_Handle(t *testing.T) {
 		handle(&actual, bytes.NewBufferString(given))
 		assert.Equal(t, expected, actual.String())
 	})
+
+	t.Run("ECHO \"Hello World!\"", func(t *testing.T) {
+		var (
+			given    = "*3\r\n$4\r\nECHO\r\n$12\r\nHello World!\r\n"
+			expected = "$12\r\nHello World!\r\n"
+			actual   bytes.Buffer
+		)
+
+		handle(&actual, bytes.NewBufferString(given))
+		assert.Equal(t, expected, actual.String())
+	})
 }
 
 func Test_Parse(t *testing.T) {
@@ -48,6 +59,17 @@ func Test_Parse(t *testing.T) {
 		var (
 			given    = "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n"
 			expected = []string{"ECHO", "hey"}
+		)
+
+		actual, err := parse(bytes.NewBufferString(given))
+		assert.NoError(t, err)
+		assert.Equal(t, expected, actual)
+	})
+
+	t.Run("ECHO Hello World!", func(t *testing.T) {
+		var (
+			given    = "*2\r\n$4\r\nECHO\r\n$12\r\nHello World!\r\n"
+			expected = []string{"ECHO", "Hello World!"}
 		)
 
 		actual, err := parse(bytes.NewBufferString(given))

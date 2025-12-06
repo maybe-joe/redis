@@ -55,13 +55,24 @@ func handle(w io.Writer, r io.Reader) {
 		return
 	}
 
-	if len(tokens) == 1 && strings.ToUpper(tokens[0]) == "PING" {
+	if len(tokens) == 0 {
+		w.Write([]byte("-ERR empty command\r\n"))
+		return
+	}
+
+	command := strings.ToUpper(tokens[0])
+
+	if command == "PING" {
 		w.Write([]byte("+PONG\r\n"))
 		return
 	}
 
-	if len(tokens) == 2 && strings.ToUpper(tokens[0]) == "ECHO" {
-		w.Write([]byte(fmt.Sprintf("$%d\r\n%s\r\n", len(tokens[1]), tokens[1])))
+	if command == "ECHO" {
+		if len(tokens) >= 2 {
+			response := fmt.Sprintf("$%d\r\n%s\r\n", len(tokens[1]), tokens[1])
+			w.Write([]byte(response))
+			return
+		}
 		return
 	}
 
