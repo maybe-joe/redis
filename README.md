@@ -1,2 +1,3 @@
-# redis
-A clone of reds
+# Redis
+
+A clone of Redis written in Go.
