@@ -72,8 +72,10 @@ func handle(w io.Writer, r io.Reader) {
 			response := fmt.Sprintf("$%d\r\n%s\r\n", len(tokens[1]), tokens[1])
 			w.Write([]byte(response))
 			return
+		} else {
+			w.Write([]byte("$0\r\n\r\n"))
+			return
 		}
-		return
 	}
 
 	w.Write([]byte("-ERR unknown command\r\n"))

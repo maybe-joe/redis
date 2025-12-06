@@ -9,73 +9,47 @@ import (
 )
 
 func Test_Handle(t *testing.T) {
-	t.Run("PING", func(t *testing.T) {
-		var (
-			given    = "*1\r\n$4\r\nPING\r\n"
-			expected = "+PONG\r\n"
-			actual   bytes.Buffer
-		)
+	testcases := []struct {
+		name     string
+		given    string
+		expected string
+	}{
+		{name: "PING", given: "*1\r\n$4\r\nPING\r\n", expected: "+PONG\r\n"},
+		{name: "ECHO", given: "*1\r\n$4\r\nECHO\r\n", expected: "$0\r\n\r\n"},
+		{name: "ECHO hey", given: "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n", expected: "$3\r\nhey\r\n"},
+		{name: "ECHO Hello World!", given: "*2\r\n$4\r\nECHO\r\n$12\r\nHello World!\r\n", expected: "$12\r\nHello World!\r\n"},
+		{name: "Unknown command", given: "*1\r\n$7\r\nUNKNOWN\r\n", expected: "-ERR unknown command\r\n"},
+		{name: "Empty command", given: "*0\r\n", expected: "-ERR empty command\r\n"},
+	}
 
-		handle(&actual, bytes.NewBufferString(given))
-		assert.Equal(t, expected, actual.String())
-	})
-
-	t.Run("ECHO hey", func(t *testing.T) {
-		var (
-			given    = "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n"
-			expected = "$3\r\nhey\r\n"
-			actual   bytes.Buffer
-		)
-
-		handle(&actual, bytes.NewBufferString(given))
-		assert.Equal(t, expected, actual.String())
-	})
-
-	t.Run("ECHO \"Hello World!\"", func(t *testing.T) {
-		var (
-			given    = "*3\r\n$4\r\nECHO\r\n$12\r\nHello World!\r\n"
-			expected = "$12\r\nHello World!\r\n"
-			actual   bytes.Buffer
-		)
-
-		handle(&actual, bytes.NewBufferString(given))
-		assert.Equal(t, expected, actual.String())
-	})
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			var actual bytes.Buffer
+			handle(&actual, bytes.NewBufferString(tc.given))
+			assert.Equal(t, tc.expected, actual.String())
+		})
+	}
 }
 
 func Test_Parse(t *testing.T) {
-	t.Run("PING", func(t *testing.T) {
-		var (
-			given    = "*1\r\n$4\r\nPING\r\n"
-			expected = []string{"PING"}
-		)
+	testcases := []struct {
+		name     string
+		given    string
+		expected []string
+	}{
+		{name: "PING", given: "*1\r\n$4\r\nPING\r\n", expected: []string{"PING"}},
+		{name: "ECHO hey", given: "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n", expected: []string{"ECHO", "hey"}},
+		{name: "ECHO Hello World!", given: "*2\r\n$4\r\nECHO\r\n$12\r\nHello World!\r\n", expected: []string{"ECHO", "Hello World!"}},
+		{name: "ECHO", given: "*1\r\n$4\r\nECHO\r\n", expected: []string{"ECHO"}},
+	}
 
-		actual, err := parse(bytes.NewBufferString(given))
-		assert.NoError(t, err)
-		assert.Equal(t, expected, actual)
-	})
-
-	t.Run("Echo hey", func(t *testing.T) {
-		var (
-			given    = "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n"
-			expected = []string{"ECHO", "hey"}
-		)
-
-		actual, err := parse(bytes.NewBufferString(given))
-		assert.NoError(t, err)
-		assert.Equal(t, expected, actual)
-	})
-
-	t.Run("ECHO Hello World!", func(t *testing.T) {
-		var (
-			given    = "*2\r\n$4\r\nECHO\r\n$12\r\nHello World!\r\n"
-			expected = []string{"ECHO", "Hello World!"}
-		)
-
-		actual, err := parse(bytes.NewBufferString(given))
-		assert.NoError(t, err)
-		assert.Equal(t, expected, actual)
-	})
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens, err := parse(bytes.NewBufferString(tc.given))
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expected, tokens)
+		})
+	}
 }
 
 func Test_Scanner(t *testing.T) {
