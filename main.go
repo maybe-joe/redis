@@ -1,13 +1,14 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"net"
 	"os"
-	"strings"
+
+	"github.com/maybe-joe/redis/command"
+	"github.com/maybe-joe/redis/lexer"
+	"github.com/maybe-joe/redis/parser"
 )
 
 func main() {
@@ -46,93 +47,42 @@ func handle(w io.Writer, r io.Reader) {
 		return
 	}
 
-	data := buf[:n]
+	data := string(buf[:n])
 	fmt.Printf("DEBUG: %q\n", data)
 
-	tokens, err := parse(bytes.NewBuffer(data))
+	var (
+		l = lexer.New(data)
+		p = parser.New(l)
+	)
+
+	cmd, err := p.Parse()
 	if err != nil {
+		fmt.Printf("Error: %+v\n", err)
+
+		switch err {
+		case parser.ErrUnknownCommand:
+			w.Write([]byte("-ERR unknown command\r\n"))
+		default:
+			w.Write([]byte("-ERR parse error\r\n"))
+		}
+
+		return
+	}
+
+	switch cmd.Type {
+	default:
+		// This should never happen
 		w.Write([]byte("-ERR internal error\r\n"))
-		return
-	}
-
-	if len(tokens) == 0 {
-		w.Write([]byte("-ERR empty command\r\n"))
-		return
-	}
-
-	command := strings.ToUpper(tokens[0])
-
-	if command == "PING" {
+	case command.UNKNOWN:
+		w.Write([]byte("-ERR unknown command\r\n"))
+	case command.PING:
 		w.Write([]byte("+PONG\r\n"))
-		return
-	}
-
-	if command == "ECHO" {
-		if len(tokens) >= 2 {
-			response := fmt.Sprintf("$%d\r\n%s\r\n", len(tokens[1]), tokens[1])
-			w.Write([]byte(response))
-			return
+	case command.ECHO:
+		msg := cmd.Args[0]
+		if len(msg) > 0 {
+			fmt.Fprintf(w, "$%d\r\n%s\r\n", len(msg), msg)
 		} else {
 			w.Write([]byte("$0\r\n\r\n"))
-			return
 		}
 	}
-
-	w.Write([]byte("-ERR unknown command\r\n"))
-}
-
-func parse(r io.Reader) ([]string, error) {
-	s := NewScanner(r)
-
-	result := []string{}
-	for {
-		tok, err := s.Scan()
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		if strings.HasPrefix(tok, "*") {
-			// TODO: consume array length
-			continue
-		}
-
-		if strings.HasPrefix(tok, "$") {
-			// TODO: consume bulk string length
-
-			// The next token is the actual string
-			tok, err = s.Scan()
-			if err != nil {
-				return nil, err
-			}
-
-			result = append(result, tok)
-
-			continue
-		}
-
-		return nil, fmt.Errorf("unexpected token: %q", tok)
-	}
-
-	return result, nil
-}
-
-type Scanner struct {
-	r *bufio.Reader
-}
-
-func NewScanner(r io.Reader) *Scanner {
-	return &Scanner{r: bufio.NewReader(r)}
-}
-
-func (s *Scanner) Scan() (string, error) {
-	tok, err := s.r.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSuffix(tok, "\r\n"), nil
 }

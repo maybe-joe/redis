@@ -46,6 +46,12 @@ func (p *Parser) Parse() (command.Command, error) {
 			return command.Unknown(), ErrUnableToParseArraySize
 		}
 
+		// If the size is zero, return an unknown command error
+		// This prevents panics later on when we try set the capacity of the args slice
+		if size == 0 {
+			return command.Unknown(), ErrUnknownCommand
+		}
+
 		// The next token should be a delimiter
 		next = p.lexer.Next()
 		if !next.IsDelimiter() {
@@ -113,12 +119,14 @@ func (p *Parser) Parse() (command.Command, error) {
 		case command.PING:
 			return command.Ping(), nil
 		case command.ECHO:
-			if len(args) != 1 {
-				return command.Unknown(), ErrMissingArgument
-			} else {
+			msg := ""
+
+			if len(args) > 0 {
 				// NOTE: Extra arguments are ignored
-				return command.Echo(args[0]), nil
+				msg = args[0]
 			}
+
+			return command.Echo(msg), nil
 		default:
 			return command.Unknown(), ErrUnknownCommand
 		}
